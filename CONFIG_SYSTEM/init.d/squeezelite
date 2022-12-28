@@ -1,0 +1,65 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          squeezelite
+# Required-Start:    $syslog
+# Required-Stop:     $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Script to start squeezelite
+# Description:       Service script for squeezelite, command line squeezebox player
+### END INIT INFO
+#Define some variables.  LMS is the IP of your Logitech Media Server.  Output device can be found by running squeezelite -l
+
+USER=$(grep -a "SYSTEM_USER" /opt/medianas/audioplayer.conf | sed -n -e 's/^[A-Z_]*\=//p')
+if [ "$USER" = "" ]; then
+    USER=odroid
+elif [ "$USER" = "pi" ]; then
+	# Environment variable not set in cron or from other user running as sudo -> important for pulseaudio (bluetooth on jessie)
+	export XDG_RUNTIME_DIR=/run/user/1000
+fi 
+
+NAME=$(cat /opt/medianas/playername.txt)
+SQUEEZELITE_PARAMETER=$(grep -a "SQUEEZELITE_PARAMETER" /opt/medianas/audioplayer.conf | sed -n -e 's/^[A-Z_]*\=//p')
+if [ $(echo $SQUEEZELITE_PARAMETER | grep " -G " | wc -l) -gt "0" ]; then
+    # TODO: this can be removed with newer versions of squeezelite and wiringPi (> 2.40 medianas)
+    USER=root
+fi
+ETH0=$(cat /sys/class/net/eth0/operstate)
+if [ "$ETH0" = "up" ]; then
+    INTERFACE=eth0
+else
+    INTERFACE=wlan0
+fi
+if [ -e /sys/class/net/$INTERFACE/address ]; then
+  MAC="-m $(cat /sys/class/net/$INTERFACE/address)"
+  echo "Use Interface $INTERFACE with $MAC"
+else
+  MAC=""
+fi
+
+case "$1" in
+  start)
+    echo "Starting Squeezelite"
+    echo "Check auf laufenden XBMC - Pulseaudio VS Alsa bringt Probleme"
+    xbmcrunning=$(ps -Al | grep xbmc | wc -l)
+    useusbdac=$(grep -a USE_USB_DAC=1 /opt/medianas/audioplayer.conf | wc -l)
+    if [ "1" -gt "$xbmcrunning" -o "0" -lt "$useusbdac" ]
+    then
+        # /sbin/start-stop-daemon --start --quiet -b -m -p /opt/squeezelite/log/squeezelite.pid --chuid $USER --exec /opt/squeezelite/squeezelite -- -n $NAME $LMS $MAC $SQUEEZELITE_PARAMETER
+        chmod 777 /tmp/squeezelite.txt
+        /sbin/start-stop-daemon --start -b -m -p /tmp/squeezelite.pid --chuid $USER --startas /bin/bash -- -c "exec /opt/squeezelite/squeezelite -n $NAME $LMS $MAC $SQUEEZELITE_PARAMETER > /tmp/squeezelite.txt 2>&1"
+    else
+    	echo "Kodi running! Cannot Start Squeezelite! Close Kodi first and/or remove Autostart for Kodi or use a different audio output for Kodi and activate 'Use USB-Soundcard' on this page." > /tmp/squeezelite.txt
+    fi
+  ;;
+  stop)
+    echo "Stopping Squeezelite"
+    /sbin/start-stop-daemon --stop --quiet --pidfile /tmp/squeezelite.pid
+    rm -f /tmp/squeezelite.pid
+  ;;
+  *)
+    echo "Usage: /etc/init.d/squeezelite {start|stop}"
+    exit 1
+  ;;
+esac
+exit 0
