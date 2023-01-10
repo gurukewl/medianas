@@ -1,0 +1,22 @@
+{
+	"hint": "Create with ~/projects/medianas/medianas/public/apidoc$ sudo apidoc -i ../../application/ -o .",
+	"name": "medianas API",
+	"version": "1.0.0",
+	"description": "medianas JSON API for web interface functions",
+	"title": "medianas API",
+	"url": "https://medianas",
+	"header": {
+		"title": "medianas API",
+		"filename": "header.md"
+	},
+	"footer": {
+		"title": "Questions / Remarks?",
+		"filename": "footer.md"
+	},
+	"template": {
+		"withGenerator": false,
+		"withCompare": false
+	},
+	"order": []
+}
+
